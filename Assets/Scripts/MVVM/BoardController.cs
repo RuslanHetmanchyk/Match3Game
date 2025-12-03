@@ -169,19 +169,26 @@ namespace Match3.Controllers
 
         private async UniTask DestroyMatches(List<GemViewModel> matches)
         {
+            // 1️⃣ Запускаем анимацию уничтожения у всех сразу
             foreach (var m in matches)
             {
                 m.MarkDestroy();
-                // find view to return to pool after animation: views deactivate themselves on animation complete
+            }
+
+            // 2️⃣ Ждём фиксированную длительность (анимация GEM view занимает 0.25 сек)
+            await UniTask.Delay(260);
+
+            // 3️⃣ После того как ВСЕ проиграли анимацию, чистим VM + возвращаем все View в pool
+            foreach (var m in matches)
+            {
+                int x = m.Model.Position.x;
+                int y = m.Model.Position.y;
+
                 var view = FindViewByVM(m);
                 if (view != null)
-                {
-                    // schedule return after short delay
-                    await UniTask.Delay(260);
                     pool.Return(view);
-                }
-                // clear spot in board VM
-                boardVM.SetGem(m.Model.Position.x, m.Model.Position.y, null);
+
+                boardVM.Grid[x, y] = null;
             }
         }
 
@@ -198,10 +205,11 @@ namespace Match3.Controllers
 
         private async UniTask CollapseAndRefill()
         {
-            // simple collapse: for each column, drop down existing gems and spawn new at top
             for (int x = 0; x < width; x++)
             {
                 int write = 0;
+
+                // 1️⃣ Сдвигаем вниз существующие гемы
                 for (int y = 0; y < height; y++)
                 {
                     var g = boardVM.GetGem(x, y);
@@ -209,40 +217,42 @@ namespace Match3.Controllers
                     {
                         if (y != write)
                         {
-                            boardVM.SetGem(x, write, g);
-                            boardVM.SetGem(x, y, null);
+                            boardVM.Grid[x, write] = g;
+                            boardVM.Grid[x, y] = null;
+
                             var view = FindViewByVM(g);
                             if (view != null)
-                            {
-                                var target = WorldPosFromIndex(x, write);
-                                g.MoveTo(target, 0.12f).Forget();
-                            }
+                                g.MoveTo(WorldPosFromIndex(x, write), 0.15f).Forget();
                         }
+
                         write++;
                     }
                 }
 
-                // spawn new for remaining
+                // 2️⃣ Заполняем новые гемы сверху
                 for (int y = write; y < height; y++)
                 {
-                    var type = RandomGemType();
+                    var type = GetSafeRandomType(x, y);
                     var model = new GemModel(type, new Vector2Int(x, y));
                     var vm = new GemViewModel(model);
+
+                    boardVM.Grid[x, y] = vm;
+
                     var view = pool.Rent();
-                    view.transform.position = WorldPosFromIndex(x, y + height + 2); // above
+                    view.transform.position = WorldPosFromIndex(x, y + height + 1); 
                     view.Bind(vm, SpriteForType(type));
-                    boardVM.SetGem(x, y, vm);
-                    vm.MoveTo(WorldPosFromIndex(x, y), 0.18f).Forget();
+
+                    vm.MoveTo(WorldPosFromIndex(x, y), 0.20f).Forget();
                 }
             }
 
             await UniTask.Delay(200);
 
-            // check new matches recursively
-            var matches = MatchFinder.FindAllMatches(boardVM);
-            if (matches.Count > 0)
+            // 3️⃣ Проверяем, есть ли новые матчи — рекурсия каскада
+            var newMatches = MatchFinder.FindAllMatches(boardVM);
+            if (newMatches.Count > 0)
             {
-                await DestroyMatches(matches);
+                await DestroyMatches(newMatches);
                 await CollapseAndRefill();
             }
         }
