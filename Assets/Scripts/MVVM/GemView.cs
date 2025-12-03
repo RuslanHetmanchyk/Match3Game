@@ -1,6 +1,6 @@
-using System;
 using DG.Tweening;
 using Match3.ViewModel;
+using MVVM;
 using UnityEngine;
 
 namespace Match3.View
@@ -40,9 +40,8 @@ namespace Match3.View
         {
             // stop any current animation
             currentSeq?.Kill();
-            float duration = 0.25f;
             currentSeq = DOTween.Sequence();
-            currentSeq.Append(transform.DOMove(worldTarget, duration).SetEase(Ease.OutQuad));
+            currentSeq.Append(transform.DOMove(worldTarget, GameConst.GemSwapSec).SetEase(Ease.OutQuad));
         }
 
         private void HandleDestroyed(GemViewModel vm)

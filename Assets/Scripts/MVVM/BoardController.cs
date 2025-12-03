@@ -1,13 +1,12 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Cysharp.Threading.Tasks;
 using Match3.Model;
 using Match3.Services;
 using Match3.View;
 using Match3.ViewModel;
+using MVVM;
 using UnityEngine;
-using Zenject;
 
 namespace Match3.Controllers
 {
@@ -116,29 +115,53 @@ namespace Match3.Controllers
         // Example public swap API (called from input handler)
         public async UniTask<bool> SwapAndResolve(Vector2Int a, Vector2Int b)
         {
-            // swap in VM
-            boardVM.Swap(a, b);
-            // animate both
-            var ga = boardVM.GetGem(b.x, b.y);
-            var gb = boardVM.GetGem(a.x, a.y);
-            if (ga == null || gb == null) return false;
-            var ta = WorldPosFromIndex(a.x, a.y);
-            var tb = WorldPosFromIndex(b.x, b.y);
-            var t1 = ga.MoveTo(ta, 0.2f);
-            var t2 = gb.MoveTo(tb, 0.2f);
-            await UniTask.WhenAll(t1, t2);
+            var gemA = boardVM.GetGem(a.x, a.y);
+            var gemB = boardVM.GetGem(b.x, b.y);
 
-            // find matches
+            if (gemA == null || gemB == null)
+                return false;
+
+            // Мировые позиции
+            var posA = WorldPosFromIndex(a.x, a.y);
+            var posB = WorldPosFromIndex(b.x, b.y);
+
+            // ------------------------------------------
+            // 1️⃣ Полный визуальный swap (A -> B, B -> A)
+            // ------------------------------------------
+            await UniTask.WhenAll(
+                gemA.MoveTo(posB, GameConst.GemSwapSec),
+                gemB.MoveTo(posA, GameConst.GemSwapSec)
+            );
+
+            // ------------------------------------------
+            // 2️⃣ После завершения анимации - меняем логику
+            // ------------------------------------------
+            boardVM.Swap(a, b);
+
+            // ------------------------------------------
+            // 3️⃣ Ищем матчи
+            // ------------------------------------------
             var matches = MatchFinder.FindAllMatches(boardVM);
+
             if (matches.Count == 0)
             {
-                // revert swap
+                // ❌ Матчей НЕТ → Rollback
+
+                // логика назад
                 boardVM.Swap(a, b);
-                await UniTask.WhenAll(ga.MoveTo(WorldPosFromIndex(b.x, b.y), 0.18f),
-                                       gb.MoveTo(WorldPosFromIndex(a.x, a.y), 0.18f));
+
+                // ------------------------------------------
+                // 4️⃣ ПОЛНЫЙ rollback (сначала доехать → потом назад)
+                // ------------------------------------------
+                await UniTask.WhenAll(
+                    gemA.MoveTo(posA, GameConst.GemSwapSec),
+                    gemB.MoveTo(posB, GameConst.GemSwapSec)
+                );
+
                 return false;
             }
 
+            // ✔ Матч есть — продолжаем
             await DestroyMatches(matches);
             await CollapseAndRefill();
             return true;

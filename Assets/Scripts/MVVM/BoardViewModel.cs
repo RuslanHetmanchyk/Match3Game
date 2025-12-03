@@ -1,7 +1,4 @@
 using System;
-using System.Collections.Generic;
-using Cysharp.Threading.Tasks;
-using Match3.Model;
 using UnityEngine;
 
 namespace Match3.ViewModel
@@ -25,7 +22,7 @@ namespace Match3.ViewModel
         {
             if (gem == null)
             {
-                Debug.LogError("Gem is null");
+                Debug.LogWarning("Gem is null");
                 
                 return;
             }
