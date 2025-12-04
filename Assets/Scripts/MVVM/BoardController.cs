@@ -12,8 +12,8 @@ namespace Match3.Controllers
 {
     public class BoardController : MonoBehaviour
     {
-        [SerializeField] private int width = 8;
-        [SerializeField] private int height = 8;
+        [SerializeField] private int width = 7;
+        [SerializeField] private int height = 7;
         [SerializeField] private float cellSize = 1f;
         [SerializeField] private Transform gemParent;
         [SerializeField] private GemView gemPrefab;
@@ -27,7 +27,7 @@ namespace Match3.Controllers
 
         private void Awake()
         {
-            boardVM = new BoardViewModel(width, height);
+            boardVM = new BoardViewModel(width, height * 2);
             pool = new GemPool(gemPrefab, gemParent, width * height);
 
             InitializeBoard().Forget();
@@ -171,26 +171,26 @@ namespace Match3.Controllers
             return true;
         }
 
+        [SerializeField] private float matchDestroyDelay = 0.0f;
+
         private async UniTask DestroyMatches(List<GemViewModel> matches)
         {
-            // 1️⃣ Запускаем анимацию уничтожения у всех сразу
+            // 1️⃣ Запускаем уничтожение одновременно
             foreach (var m in matches)
-            {
                 m.MarkDestroy();
-            }
 
-            // 2️⃣ Ждём фиксированную длительность (анимация GEM view занимает 0.25 сек)
-            await UniTask.Delay(260);
+            // 2️⃣ Никакого поочерёдного удаления — ждём только период разрушения
+            await UniTask.Delay((int)(matchDestroyDelay * 1000));
 
-            // 3️⃣ После того как ВСЕ проиграли анимацию, чистим VM + возвращаем все View в pool
+            // 3️⃣ Чистим grid + возвращаем view
             foreach (var m in matches)
             {
                 int x = m.Model.Position.x;
                 int y = m.Model.Position.y;
 
-                if (vmToView.TryGetValue(m, out var v))
+                if (vmToView.TryGetValue(m, out var view))
                 {
-                    pool.Return(v);
+                    pool.Return(view);
                     vmToView.Remove(m);
                 }
 
@@ -198,21 +198,40 @@ namespace Match3.Controllers
             }
         }
 
+
         private GemView FindViewByVM(GemViewModel vm)
         {
             vmToView.TryGetValue(vm, out var view);
             return view;
         }
 
-        [SerializeField] private float cascadeStaggerDelay = 0.05f;
+        [SerializeField] private float cascadeFallDuration = 0.10f;
+        [SerializeField] private float cascadeStepDelay = 0.05f; // задержка между падениями элементов в колонке
+        [SerializeField] private float cascadeStartDelay = 0.0f; // задержка перед каскадом после матча
+
 
         private async UniTask CollapseAndRefill()
         {
+            int[] destroyCount = new int[width];
+
+            // 1️⃣ Считаем пустоты после DestroyMatches
+            for (int x = 0; x < width; x++)
+            {
+                int holes = 0;
+                for (int y = 0; y < height; y++)
+                {
+                    if (boardVM.Grid[x, y] == null)
+                        holes++;
+                }
+
+                destroyCount[x] = holes;
+            }
+
+            // 2️⃣ Сжимаем существующие гемы вниз (логически)
             for (int x = 0; x < width; x++)
             {
                 int write = 0;
 
-                // 🟦 1. Логическое сжатие (без анимации)
                 for (int y = 0; y < height; y++)
                 {
                     var g = boardVM.Grid[x, y];
@@ -229,53 +248,42 @@ namespace Match3.Controllers
                         write++;
                     }
                 }
+            }
 
-                // 🟦 2. Анимируем каскад СТАГГЕРОМ
-                int staggerIndex = 0;
-
-                for (int y = 0; y < write; y++)
+            // 3️⃣ Создаём новые гемы СВЕРХУ СТОЛЬКО, СКОЛЬКО БЫЛО УДАЛЕНО
+            for (int x = 0; x < width; x++)
+            {
+                for (int i = 0; i < destroyCount[x]; i++)
                 {
-                    var g = boardVM.Grid[x, y];
-                    if (g == null) continue;
+                    int spawnY = height + i; // над верхом колонки
 
-                    if (vmToView.TryGetValue(g, out var view))
-                    {
-                        float delay = cascadeStaggerDelay * staggerIndex;
-                        var target = WorldPosFromIndex(x, y);
-
-                        // запустить MoveTo с задержкой (не дожидаемся!)
-                        AnimateWithStagger(g, target, 0.15f, delay).Forget();
-
-                        staggerIndex++;
-                    }
-                }
-
-                // 🟦 3. Добавление новых (тоже со stagger)
-                for (int y = write; y < height; y++)
-                {
-                    var type = GetSafeRandomType(x, y);
-                    var model = new GemModel(type, new Vector2Int(x, y));
+                    var type = RandomGemType();
+                    var model = new GemModel(type, new Vector2Int(x, spawnY));
                     var vm = new GemViewModel(model);
 
-                    boardVM.Grid[x, y] = vm;
-
                     var view = pool.Rent();
-                    view.transform.position = WorldPosFromIndex(x, y + height + 2);
+                    view.transform.position = WorldPosFromIndex(x, spawnY);
                     view.Bind(vm, SpriteForType(type));
                     vmToView[vm] = view;
 
-                    float delay = cascadeStaggerDelay * (staggerIndex++);
-
-                    AnimateWithStagger(vm, WorldPosFromIndex(x, y), 0.20f, delay).Forget();
+                    boardVM.Grid[x, spawnY] = vm;
                 }
             }
 
-            // Ждём максимальный потенциальный stagger
-            int maxHeight = height;
-            await UniTask.Delay((int)((maxHeight * cascadeStaggerDelay + 0.25f) * 1000));
+            // 4️⃣ Ждём start delay — разрушение уже идёт параллельно
+            await UniTask.Delay((int)(cascadeStartDelay * 1000));
 
-            // 🟦 4. Проверяем продолжение каскада
+            // 5️⃣ Запускаем ПОШАГОВЫЙ каскад (stagger)
+            List<UniTask> fallTasks = new List<UniTask>();
+
+            for (int x = 0; x < width; x++)
+                fallTasks.Add(ProcessColumnFall(x));
+
+            await UniTask.WhenAll(fallTasks);
+
+            // 6️⃣ Проверяем новые матчи
             var matches = MatchFinder.FindAllMatches(boardVM);
+
             if (matches.Count > 0)
             {
                 await DestroyMatches(matches);
@@ -283,12 +291,52 @@ namespace Match3.Controllers
             }
         }
 
-        private async UniTask AnimateWithStagger(GemViewModel vm, Vector2 target, float duration, float delay)
+        private async UniTask ProcessColumnFall(int x)
         {
-            if (delay > 0)
-                await UniTask.Delay((int)(delay * 1000));
+            // 1️⃣ Находим ВЕСЬ диапазон элементов, включая наращенные сверху
+            int topY = height - 1;
 
-            await vm.MoveTo(target, duration);
+            // ищем highest spawnY
+            while (topY + 1 < boardVM.Grid.GetLength(1) &&
+                   boardVM.Grid[x, topY + 1] != null)
+            {
+                topY++;
+            }
+
+            // 2️⃣ Собираем ВСЕ гемы сверху вниз
+            List<GemViewModel> gems = new List<GemViewModel>();
+
+            for (int y = 0; y <= topY; y++)
+            {
+                var g = boardVM.Grid[x, y];
+                if (g != null)
+                    gems.Add(g);
+            }
+
+            // 3️⃣ Теперь эти гемы должны оказаться на позициях 0..gems.Count-1
+            for (int i = 0; i < gems.Count; i++)
+            {
+                var gem = gems[i];
+
+                int targetY = i;
+                gem.Model.Position = new Vector2Int(x, targetY);
+
+                Vector2 target = WorldPosFromIndex(x, targetY);
+
+                // Запускаем падение
+                gem.MoveTo(target, cascadeFallDuration).Forget();
+
+                // Задержка между падениями
+                await UniTask.Delay((int)(cascadeStepDelay * 1000));
+            }
+
+            // 4️⃣ Физически обновляем сетку
+            for (int y = 0; y < gems.Count; y++)
+                boardVM.Grid[x, y] = gems[y];
+
+            // очищаем верх колонны
+            for (int y = gems.Count; y <= topY; y++)
+                boardVM.Grid[x, y] = null;
         }
 
 
