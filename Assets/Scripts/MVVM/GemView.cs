@@ -41,7 +41,7 @@ namespace Match3.View
             // stop any current animation
             currentSeq?.Kill();
             currentSeq = DOTween.Sequence();
-            currentSeq.Append(transform.DOMove(worldTarget, GameConst.GemSwapSec).SetEase(Ease.OutQuad));
+            currentSeq.Append(transform.DOMove(worldTarget, GameConst.GemSwapSec).SetEase(Ease.OutCubic));
         }
 
         private void HandleDestroyed(GemViewModel vm)

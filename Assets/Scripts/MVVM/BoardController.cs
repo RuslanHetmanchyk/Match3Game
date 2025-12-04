@@ -18,7 +18,7 @@ namespace Match3.Controllers
         [SerializeField] private Transform gemParent;
         [SerializeField] private GemView gemPrefab;
         [SerializeField] private Sprite[] gemSprites; // map by GemType enum order (excluding bomb maybe)
-        
+
         private readonly Dictionary<GemViewModel, GemView> vmToView = new Dictionary<GemViewModel, GemView>();
 
 
@@ -78,7 +78,7 @@ namespace Match3.Controllers
             int count = Enum.GetValues(typeof(GemType)).Length;
             return (GemType)UnityEngine.Random.Range(0, Mathf.Max(1, count - 1)); // optional: exclude bomb for simplicity
         }
-        
+
         private GemType GetSafeRandomType(int x, int y)
         {
             while (true)
@@ -204,16 +204,18 @@ namespace Match3.Controllers
             return view;
         }
 
+        [SerializeField] private float cascadeStaggerDelay = 0.05f;
+
         private async UniTask CollapseAndRefill()
         {
             for (int x = 0; x < width; x++)
             {
                 int write = 0;
 
-                // 1️⃣ Сдвигаем вниз существующие гемы
+                // 🟦 1. Логическое сжатие (без анимации)
                 for (int y = 0; y < height; y++)
                 {
-                    var g = boardVM.GetGem(x, y);
+                    var g = boardVM.Grid[x, y];
                     if (g != null)
                     {
                         if (y != write)
@@ -221,19 +223,34 @@ namespace Match3.Controllers
                             boardVM.Grid[x, write] = g;
                             boardVM.Grid[x, y] = null;
 
-                            var view = FindViewByVM(g);
-                            if (view != null)
-                            {
-                                g.MoveTo(WorldPosFromIndex(x, write), 0.15f).Forget();
-                                g.Model.Position = new Vector2Int(x, write);
-                            }
+                            g.Model.Position = new Vector2Int(x, write);
                         }
 
                         write++;
                     }
                 }
 
-                // 2️⃣ Заполняем новые гемы сверху
+                // 🟦 2. Анимируем каскад СТАГГЕРОМ
+                int staggerIndex = 0;
+
+                for (int y = 0; y < write; y++)
+                {
+                    var g = boardVM.Grid[x, y];
+                    if (g == null) continue;
+
+                    if (vmToView.TryGetValue(g, out var view))
+                    {
+                        float delay = cascadeStaggerDelay * staggerIndex;
+                        var target = WorldPosFromIndex(x, y);
+
+                        // запустить MoveTo с задержкой (не дожидаемся!)
+                        AnimateWithStagger(g, target, 0.15f, delay).Forget();
+
+                        staggerIndex++;
+                    }
+                }
+
+                // 🟦 3. Добавление новых (тоже со stagger)
                 for (int y = write; y < height; y++)
                 {
                     var type = GetSafeRandomType(x, y);
@@ -243,24 +260,37 @@ namespace Match3.Controllers
                     boardVM.Grid[x, y] = vm;
 
                     var view = pool.Rent();
-                    view.transform.position = WorldPosFromIndex(x, y + height + 1); 
+                    view.transform.position = WorldPosFromIndex(x, y + height + 2);
                     view.Bind(vm, SpriteForType(type));
                     vmToView[vm] = view;
 
-                    vm.MoveTo(WorldPosFromIndex(x, y), 0.20f).Forget();
+                    float delay = cascadeStaggerDelay * (staggerIndex++);
+
+                    AnimateWithStagger(vm, WorldPosFromIndex(x, y), 0.20f, delay).Forget();
                 }
             }
 
-            await UniTask.Delay(200);
+            // Ждём максимальный потенциальный stagger
+            int maxHeight = height;
+            await UniTask.Delay((int)((maxHeight * cascadeStaggerDelay + 0.25f) * 1000));
 
-            // 3️⃣ Проверяем, есть ли новые матчи — рекурсия каскада
-            var newMatches = MatchFinder.FindAllMatches(boardVM);
-            if (newMatches.Count > 0)
+            // 🟦 4. Проверяем продолжение каскада
+            var matches = MatchFinder.FindAllMatches(boardVM);
+            if (matches.Count > 0)
             {
-                await DestroyMatches(newMatches);
+                await DestroyMatches(matches);
                 await CollapseAndRefill();
             }
         }
+
+        private async UniTask AnimateWithStagger(GemViewModel vm, Vector2 target, float duration, float delay)
+        {
+            if (delay > 0)
+                await UniTask.Delay((int)(delay * 1000));
+
+            await vm.MoveTo(target, duration);
+        }
+
 
         private async UniTask ResolveMatchesLoop()
         {

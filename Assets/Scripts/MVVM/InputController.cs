@@ -94,15 +94,13 @@ namespace Match3.InputSystem
 
         private Vector2Int? TryGetCellFromScreen(Vector2 screenPos)
         {
-            Vector2 world = cam.ScreenToWorldPoint(screenPos);
-            RaycastHit2D hit = Physics2D.Raycast(world, Vector2.zero);
-
-            if (hit.collider == null)
-                return null;
-
-            var gem = hit.collider.GetComponent<GemView>();
+            var world = cam.ScreenToWorldPoint(screenPos);
+            var hit = Physics2D.Raycast(world, Vector2.zero);
+            var gem = hit.collider?.GetComponent<GemView>();
             if (gem == null || gem.ViewModel == null)
+            {
                 return null;
+            }
 
             return gem.ViewModel.Model.Position;
         }
