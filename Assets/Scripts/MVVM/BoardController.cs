@@ -18,6 +18,9 @@ namespace Match3.Controllers
         [SerializeField] private Transform gemParent;
         [SerializeField] private GemView gemPrefab;
         [SerializeField] private Sprite[] gemSprites; // map by GemType enum order (excluding bomb maybe)
+        
+        private readonly Dictionary<GemViewModel, GemView> vmToView = new Dictionary<GemViewModel, GemView>();
+
 
         private BoardViewModel boardVM;
         private GemPool pool;
@@ -52,6 +55,7 @@ namespace Match3.Controllers
                     view.transform.position = WorldPosFromIndex(x, y + height + 2); // spawn above for drop effect
                     view.Bind(vm, SpriteForType(type));
                     boardVM.SetGem(x, y, vm);
+                    vmToView[vm] = view;
                     // animate drop
                     var target = WorldPosFromIndex(x, y);
                     vm.MoveTo(target, 0.25f).Forget();
@@ -184,9 +188,11 @@ namespace Match3.Controllers
                 int x = m.Model.Position.x;
                 int y = m.Model.Position.y;
 
-                var view = FindViewByVM(m);
-                if (view != null)
-                    pool.Return(view);
+                if (vmToView.TryGetValue(m, out var v))
+                {
+                    pool.Return(v);
+                    vmToView.Remove(m);
+                }
 
                 boardVM.Grid[x, y] = null;
             }
@@ -194,13 +200,8 @@ namespace Match3.Controllers
 
         private GemView FindViewByVM(GemViewModel vm)
         {
-            // naive search through parent children (could keep a map vm->view)
-            foreach (Transform t in gemParent)
-            {
-                var v = t.GetComponent<GemView>();
-                if (v != null && v.ViewModel == vm) return v;
-            }
-            return null;
+            vmToView.TryGetValue(vm, out var view);
+            return view;
         }
 
         private async UniTask CollapseAndRefill()
@@ -222,7 +223,10 @@ namespace Match3.Controllers
 
                             var view = FindViewByVM(g);
                             if (view != null)
+                            {
                                 g.MoveTo(WorldPosFromIndex(x, write), 0.15f).Forget();
+                                g.Model.Position = new Vector2Int(x, write);
+                            }
                         }
 
                         write++;
@@ -241,6 +245,7 @@ namespace Match3.Controllers
                     var view = pool.Rent();
                     view.transform.position = WorldPosFromIndex(x, y + height + 1); 
                     view.Bind(vm, SpriteForType(type));
+                    vmToView[vm] = view;
 
                     vm.MoveTo(WorldPosFromIndex(x, y), 0.20f).Forget();
                 }

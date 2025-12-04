@@ -1,9 +1,6 @@
-using System;
 using System.Collections.Generic;
 using Match3.View;
-using Match3.ViewModel;
 using UnityEngine;
-using Zenject;
 
 namespace Match3.Services
 {

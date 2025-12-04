@@ -1,4 +1,6 @@
 using System;
+using Match3.Model;
+using MVVM;
 using UnityEngine;
 
 namespace Match3.ViewModel
@@ -20,15 +22,16 @@ namespace Match3.ViewModel
 
         public void SetGem(int x, int y, GemViewModel gem)
         {
-            if (gem == null)
-            {
-                Debug.LogWarning("Gem is null");
-                
-                return;
-            }
-            
+            var current = Grid[x, y];
+            if (current == gem) return;
+
             Grid[x, y] = gem;
-            gem.Model.Position = new Vector2Int(x, y);
+
+            if (gem != null)
+            {
+                gem.Model.Position = new Vector2Int(x, y);
+            }
+
             OnBoardChanged?.Invoke();
         }
 

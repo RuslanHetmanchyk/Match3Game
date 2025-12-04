@@ -1,7 +1,6 @@
 using UnityEngine;
 using Cysharp.Threading.Tasks;
 using Match3.Controllers;
-using System;
 using Match3.View;
 
 namespace Match3.InputSystem
@@ -42,11 +41,11 @@ namespace Match3.InputSystem
         {
             if (Input.GetMouseButtonDown(0))
             {
-                Debug.LogError("Mouse button is pressed");
-                
                 isTouching = true;
                 startPos = Input.mousePosition;
                 selectedCell = TryGetCellFromScreen(Input.mousePosition);
+                
+                Debug.LogError(selectedCell);
             }
 
             if (Input.GetMouseButtonUp(0) && isTouching)
