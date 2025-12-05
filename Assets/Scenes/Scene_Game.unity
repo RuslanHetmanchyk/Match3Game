@@ -958,9 +958,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 069434fae02e31344b83f64feb8ac5c8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  width: 7
-  height: 7
-  cellSize: 1
   gemParent: {fileID: 1740955909}
   gemPrefab: {fileID: 6588138120246392118, guid: 3c8c63d1a79d4fd45906fa0b7c3e2d30,
     type: 3}
