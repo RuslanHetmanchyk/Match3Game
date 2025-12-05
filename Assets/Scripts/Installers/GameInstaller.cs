@@ -1,8 +1,8 @@
-using Match3.View;
+using MVVM.View;
 using UnityEngine;
 using Zenject;
 
-namespace Match3.Installers
+namespace Installers
 {
     public class GameInstaller : MonoInstaller
     {
@@ -13,7 +13,6 @@ namespace Match3.Installers
         {
             Container.BindInstance(gemPrefab).AsSingle();
             Container.BindInstance(gemParent).AsSingle();
-            // можно зарегистрировать дополнительные сервисы здесь
         }
     }
 }

@@ -1,9 +1,8 @@
-using UnityEngine;
 using Cysharp.Threading.Tasks;
-using Match3.Controllers;
-using Match3.View;
+using MVVM.View;
+using UnityEngine;
 
-namespace Match3.InputSystem
+namespace GameControllers
 {
     public class InputController : MonoBehaviour
     {
@@ -20,7 +19,9 @@ namespace Match3.InputSystem
         private void Awake()
         {
             if (cam == null)
+            {
                 cam = Camera.main;
+            }
         }
 
         private void Update()
@@ -44,8 +45,6 @@ namespace Match3.InputSystem
                 isTouching = true;
                 startPos = Input.mousePosition;
                 selectedCell = TryGetCellFromScreen(Input.mousePosition);
-                
-                Debug.LogError(selectedCell);
             }
 
             if (Input.GetMouseButtonUp(0) && isTouching)
@@ -54,7 +53,9 @@ namespace Match3.InputSystem
                 var endPos = (Vector2)Input.mousePosition;
 
                 if (selectedCell.HasValue == false)
+                {
                     return;
+                }
 
                 TrySwipe(startPos, endPos);
             }
@@ -65,10 +66,12 @@ namespace Match3.InputSystem
         // ==============================
         private void HandleTouch()
         {
-            if (Input.touchCount == 0) return;
+            if (Input.touchCount == 0)
+            {
+                return;
+            }
 
-            Touch t = Input.GetTouch(0);
-
+            var t = Input.GetTouch(0);
             if (t.phase == TouchPhase.Began)
             {
                 isTouching = true;
@@ -82,15 +85,13 @@ namespace Match3.InputSystem
                 var endPos = t.position;
 
                 if (selectedCell.HasValue == false)
+                {
                     return;
+                }
 
                 TrySwipe(startPos, endPos);
             }
         }
-
-        // ==============================
-        // Core Logic
-        // ==============================
 
         private Vector2Int? TryGetCellFromScreen(Vector2 screenPos)
         {
@@ -107,25 +108,25 @@ namespace Match3.InputSystem
 
         private void TrySwipe(Vector2 start, Vector2 end)
         {
-            Vector2 delta = end - start;
-
+            var delta = end - start;
             if (delta.magnitude < minSwipeDistance * Screen.dpi / 160f)
             {
-                // слишком короткое движение — считаем тапом, но не обрабатываем
                 return;
             }
 
-            // определить направление свайпа
             Vector2Int dir;
             if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y))
+            {
                 dir = delta.x > 0 ? Vector2Int.right : Vector2Int.left;
+            }
             else
+            {
                 dir = delta.y > 0 ? Vector2Int.up : Vector2Int.down;
+            }
 
-            Vector2Int from = selectedCell.Value;
-            Vector2Int to = from + dir;
+            var from = selectedCell.Value;
+            var to = from + dir;
 
-            // передать в BoardController
             PerformSwap(from, to).Forget();
         }
 
@@ -135,9 +136,7 @@ namespace Match3.InputSystem
 
             bool success = await board.SwapAndResolve(a, b);
 
-            // если match был найден — board сам обработает цикл
-            // если нет — swap будет отменён анимацией
-            await UniTask.Delay(100); // защита от спама
+            await UniTask.Delay(100);
 
             inputLocked = false;
         }

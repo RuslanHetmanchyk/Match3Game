@@ -1,15 +1,15 @@
 using System;
 using Cysharp.Threading.Tasks;
-using Match3.Model;
+using MVVM.Model;
 using UnityEngine;
 
-namespace Match3.ViewModel
+namespace MVVM.ViewModel
 {
     public class GemViewModel
     {
         public GemModel Model { get; }
         public event Action<GemViewModel> OnDestroyed;
-        public event Action<GemViewModel, Vector2> OnMoved; // world target pos
+        public event Action<GemViewModel, Vector2> OnMoved;
 
         public GemViewModel(GemModel model)
         {
@@ -20,7 +20,7 @@ namespace Match3.ViewModel
         {
             Model.IsMoving = true;
             OnMoved?.Invoke(this, worldTarget);
-            await UniTask.DelayFrame(1); // view drives tween; we await very short time to keep flow
+            await UniTask.DelayFrame(1);
             await UniTask.Delay((int)(duration * 1000f));
             Model.IsMoving = false;
         }

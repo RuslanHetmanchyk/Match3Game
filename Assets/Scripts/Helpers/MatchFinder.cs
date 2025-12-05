@@ -1,21 +1,19 @@
 using System.Collections.Generic;
-using Match3.ViewModel;
-using Match3.Model;
-using UnityEngine;
+using MVVM.ViewModel;
 
-namespace Match3.Services
+namespace Helpers
 {
     public static class MatchFinder
     {
-        // простая реализация: по строкам и столбцам ищем подряд >=3 одинаковых типов
         public static List<GemViewModel> FindAllMatches(BoardViewModel board)
         {
-            List<GemViewModel> matches = new List<GemViewModel>();
+            var matches = new List<GemViewModel>();
+
             // horizontal
-            for (int y = 0; y < board.Height; y++)
+            for (var y = 0; y < board.Height; y++)
             {
-                int run = 1;
-                for (int x = 1; x < board.Width; x++)
+                var run = 1;
+                for (var x = 1; x < board.Width; x++)
                 {
                     var prev = board.GetGem(x - 1, y);
                     var cur = board.GetGem(x, y);
@@ -27,13 +25,19 @@ namespace Match3.Services
                     {
                         if (run >= 3)
                         {
-                            for (int k = 0; k < run; k++) matches.Add(board.GetGem(x - 1 - k, y));
+                            for (var k = 0; k < run; k++) matches.Add(board.GetGem(x - 1 - k, y));
                         }
                         run = 1;
                     }
                 }
+
                 if (run >= 3)
-                    for (int k = 0; k < run; k++) matches.Add(board.GetGem(board.Width - 1 - k, y));
+                {
+                    for (var k = 0; k < run; k++)
+                    {
+                        matches.Add(board.GetGem(board.Width - 1 - k, y));
+                    }
+                }
             }
 
             // vertical
@@ -57,11 +61,16 @@ namespace Match3.Services
                         run = 1;
                     }
                 }
+
                 if (run >= 3)
-                    for (int k = 0; k < run; k++) matches.Add(board.GetGem(x, board.Height - 1 - k));
+                {
+                    for (int k = 0; k < run; k++)
+                    {
+                        matches.Add(board.GetGem(x, board.Height - 1 - k));
+                    }
+                }
             }
 
-            // unique
             var distinct = new HashSet<GemViewModel>(matches);
             return new List<GemViewModel>(distinct);
         }

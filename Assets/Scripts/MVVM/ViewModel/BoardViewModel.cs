@@ -1,9 +1,7 @@
 using System;
-using Match3.Model;
-using MVVM;
 using UnityEngine;
 
-namespace Match3.ViewModel
+namespace MVVM.ViewModel
 {
     public class BoardViewModel
     {
@@ -47,7 +45,5 @@ namespace Match3.ViewModel
             if (gb != null) gb.Model.Position = a;
             OnBoardChanged?.Invoke();
         }
-
-        // Utility to find empty cells etc.
     }
 }

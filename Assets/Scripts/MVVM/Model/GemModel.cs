@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Match3.Model
+namespace MVVM.Model
 {
     public enum GemType { Blue, Green, Red, Yellow, Purple, Bomb }
 

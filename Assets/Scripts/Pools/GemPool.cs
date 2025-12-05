@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using Match3.View;
+using MVVM.View;
 using UnityEngine;
 
-namespace Match3.Services
+namespace Pools
 {
     public class GemPool
     {
