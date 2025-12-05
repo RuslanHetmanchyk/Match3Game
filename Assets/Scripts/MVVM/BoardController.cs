@@ -173,21 +173,21 @@ namespace Match3.Controllers
 
         private async UniTask DestroyMatches(List<GemViewModel> matches)
         {
-            // 1️⃣ Запускаем уничтожение одновременно
+            // 1️⃣ Немедленно запускаем анимацию уничтожения
             foreach (var m in matches)
             {
                 m.MarkDestroy();
                 vmToView.Remove(m);
-                
+        
                 int x = m.Model.Position.x;
                 int y = m.Model.Position.y;
-                boardVM.Grid[x, y] = null;
+                boardVM.Grid[x, y] = null;     // освобождаем слот СРАЗУ
             }
 
-            // 2️⃣ Никакого поочерёдного удаления — ждём только период разрушения
+            // 2️⃣ Ждём время визуальной анимации уничтожения
             await UniTask.Delay((int)(GameConst.GemDestroyDelaySec * 1000));
 
-            // 3️⃣ Чистим grid + возвращаем view
+            // 3️⃣ Когда анимация полностью закончилась — возвращаем view в пул
             foreach (var m in matches)
             {
                 if (vmToView.TryGetValue(m, out var view))
@@ -197,7 +197,6 @@ namespace Match3.Controllers
                 }
             }
         }
-
 
         private GemView FindViewByVM(GemViewModel vm)
         {
