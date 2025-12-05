@@ -1,4 +1,5 @@
 The new project was refactored and converted to an MVVM architecture.
+
 Plugins added:
 - Zenject
 - UniTasks
