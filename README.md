@@ -3,4 +3,5 @@ Plugins added:
 - Zenject
 - UniTasks
 - DOTween
+  
 A config class was added, where most of the configurable values ​​were moved.
