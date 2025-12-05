@@ -171,30 +171,30 @@ namespace Match3.Controllers
             return true;
         }
 
-        [SerializeField] private float matchDestroyDelay = 0.0f;
-
         private async UniTask DestroyMatches(List<GemViewModel> matches)
         {
             // 1️⃣ Запускаем уничтожение одновременно
             foreach (var m in matches)
+            {
                 m.MarkDestroy();
+                vmToView.Remove(m);
+                
+                int x = m.Model.Position.x;
+                int y = m.Model.Position.y;
+                boardVM.Grid[x, y] = null;
+            }
 
             // 2️⃣ Никакого поочерёдного удаления — ждём только период разрушения
-            await UniTask.Delay((int)(matchDestroyDelay * 1000));
+            await UniTask.Delay((int)(GameConst.GemDestroyDelaySec * 1000));
 
             // 3️⃣ Чистим grid + возвращаем view
             foreach (var m in matches)
             {
-                int x = m.Model.Position.x;
-                int y = m.Model.Position.y;
-
                 if (vmToView.TryGetValue(m, out var view))
                 {
+                    await UniTask.Delay((int)(GameConst.GemDestroySec * 1000));
                     pool.Return(view);
-                    vmToView.Remove(m);
                 }
-
-                boardVM.Grid[x, y] = null;
             }
         }
 
@@ -207,7 +207,7 @@ namespace Match3.Controllers
 
         [SerializeField] private float cascadeFallDuration = 0.10f;
         [SerializeField] private float cascadeStepDelay = 0.05f; // задержка между падениями элементов в колонке
-        [SerializeField] private float cascadeStartDelay = 0.0f; // задержка перед каскадом после матча
+        [SerializeField] private float cascadeStartDelay = 0.01f; // задержка перед каскадом после матча
 
 
         private async UniTask CollapseAndRefill()
