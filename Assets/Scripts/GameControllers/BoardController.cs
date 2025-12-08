@@ -7,6 +7,7 @@ using MVVM.View;
 using MVVM.ViewModel;
 using Pools;
 using UnityEngine;
+using Zenject;
 
 namespace GameControllers
 {
@@ -20,14 +21,20 @@ namespace GameControllers
 
 
         private BoardViewModel boardVM;
-        private GemPool pool;
+
+        private GemViewPool gemViewPool;
 
         private void Awake()
         {
             boardVM = new BoardViewModel(GameConst.BoardWidth, GameConst.BoardHeight * 2);
-            pool = new GemPool(gemPrefab, gemParent, GameConst.BoardWidth * GameConst.BoardHeight);
 
             InitializeBoard().Forget();
+        }
+
+        [Inject]
+        private void Install(GemViewPool gemViewPool)
+        {
+            this.gemViewPool = gemViewPool;
         }
 
         private Vector2 WorldPosFromIndex(int x, int y)
@@ -47,7 +54,8 @@ namespace GameControllers
                     var type = GetSafeRandomType(x, y);
                     var model = new GemModel(type, new Vector2Int(x, y));
                     var vm = new GemViewModel(model);
-                    var view = pool.Rent();
+                    var view = gemViewPool.Spawn(model);
+                    view.transform.SetParent(gemParent, false);
                     view.transform.position = WorldPosFromIndex(x, y + GameConst.BoardHeight + 2);
                     view.Bind(vm, SpriteForType(type));
                     boardVM.SetGem(x, y, vm);
@@ -166,7 +174,7 @@ namespace GameControllers
                 if (vmToView.TryGetValue(m, out var view))
                 {
                     await UniTask.Delay((int)(GameConst.GemDestroySec * 1000));
-                    pool.Return(view);
+                    gemViewPool.Despawn(view);
                 }
             }
         }
@@ -221,7 +229,8 @@ namespace GameControllers
                     var model = new GemModel(type, new Vector2Int(x, spawnY));
                     var vm = new GemViewModel(model);
 
-                    var view = pool.Rent();
+                    var view = gemViewPool.Spawn(model);
+                    view.transform.SetParent(gemParent, false);
                     view.transform.position = WorldPosFromIndex(x, spawnY);
                     view.Bind(vm, SpriteForType(type));
                     vmToView[vm] = view;
